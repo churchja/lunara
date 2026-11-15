@@ -793,7 +793,7 @@ input[type="color"] { width: 64px; height: 44px; border: 1px solid var(--line-st
 .mcp .lamp.polling { opacity: .35; }
 .mcp .lamp.reported { z-index: 1; opacity: 1; transform: scale(1.04); box-shadow: 0 0 0 2px var(--mcp-accent), 0 6px 18px rgba(0, 0, 0, .45); }
 
-/* scope: the window fills its card from side to side (2026-11-12, Jason; it was held to 212 px, which left 37 px of
+/* scope: the window fills its card from side to side (2026-11-12, the owner; it was held to 212 px, which left 37 px of
    empty card on each side). The one-column phone layout keeps its own 272 px limit, set further down. */
 .mcp-bezel { position: relative; width: 100%; aspect-ratio: 1; margin: 0 auto; padding: 8px; border-radius: 50%; background: linear-gradient(180deg, rgba(0, 0, 0, .55), rgba(0, 0, 0, .3)); box-shadow: inset 0 2px 8px rgba(0, 0, 0, .8), 0 1px 0 rgba(255, 255, 255, .14); }
 .mcp-bezel canvas { display: block; width: 100%; height: 100%; border-radius: 50%; background: var(--mcp-scope-bg); }
@@ -862,7 +862,7 @@ input[type="color"] { width: 64px; height: 44px; border: 1px solid var(--line-st
 .mcp.folded .mcp-tp { grid-template-columns: repeat(5, 44px); }
 .mcp.folded .tp { min-height: 40px; padding: 4px 2px; }
 .mcp.folded .mcp-eq { height: 30px; }
-/* folded strip wider than a phone: every box on one centre line (2026-11-12, Jason). The label used to be part of the block
+/* folded strip wider than a phone: every box on one centre line (2026-11-12, the owner). The label used to be part of the block
    the row centres, which put the name window 9.5 px below the keys, the meter and the fold button. It now hangs above the
    window without adding to the block's height; the module gets 6 px more room above and below to hold it. */
 @media (min-width: 761px) {
@@ -969,7 +969,7 @@ input[type="color"] { width: 64px; height: 44px; border: 1px solid var(--line-st
 .lamp-grid > .lamp-stack { grid-column: span 4; display: grid; gap: var(--space-4); align-content: start; min-width: 0; }
 /* A. split-flap board: black like a real flap display in every theme; replaces the "below your horizon" band */
 #moonDown { display: none !important; }
-/* a grid, so the board has the box's whole width (beside the label) and the button sits on a row of its own under it (Jason 2026-11-13) */
+/* a grid, so the board has the box's whole width (beside the label) and the button sits on a row of its own under it (the owner 2026-11-13) */
 .flap { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-3); padding: 10px 12px; background: #0b0c0d; color: #f4ead2; border: 1px solid #000;
   border-radius: var(--radius); box-shadow: inset 0 2px 8px rgba(0, 0, 0, .8), 0 1px 0 rgba(255, 255, 255, .06); cursor: pointer; }
 .flap-lab { font: 700 10px/1.2 var(--font-ui); letter-spacing: .2em; text-transform: uppercase; color: #8d8a80; writing-mode: vertical-rl; transform: rotate(180deg); }
@@ -1038,7 +1038,7 @@ input[type="color"] { width: 64px; height: 44px; border: 1px solid var(--line-st
 .pass-alert .btn { flex: none; padding: 6px 12px; background: transparent; color: inherit; border: 1px solid currentColor; letter-spacing: .08em; }
 .pass-alert .btn[hidden] { display: none; }
 .wmap.pa-view .pass-alert { border-color: #7cf; color: #7cf; }
-/* On a phone the map is about 130 px tall, and the alert lying on it hid most of it (Jason's Pixel, 11-14:
+/* On a phone the map is about 130 px tall, and the alert lying on it hid most of it (the owner's Pixel, 11-14:
    59% of the map at 412 px wide, 89% at 360 px). Where the map is narrower than 600 px the alert sits under
    the map instead, and the pulse tint keeps to the map: 360 by 136 degrees, the shape wall.js draws. */
 .wmap-frame { container: wmapf / inline-size; }
@@ -1294,9 +1294,9 @@ body.site-open > .bar, body.site-open > main, body.site-open > .demo, body.site-
    The layouts below gave text a fixed share of the width; these let it wrap or yield instead of scrolling sideways. */
 @media (max-width: 760px) {
   .stage.dome > div:first-child { grid-template-columns: minmax(0, 1fr); }   /* 1fr would not go narrower than the phase heading */
-  /* 2026-11-11, layout B (Jason's pick from the mock-up): phase name on top, the Moon picture at full width, then a
+  /* 2026-11-11, layout B (the owner's pick from the mock-up): phase name on top, the Moon picture at full width, then a
      compact time box, so a +1 day step is watched on the picture. The event board comes last. The first try shrank
-     the picture on a short screen (max-width from 100svh); Jason rejected that, so the picture is full width again. */
+     the picture on a short screen (max-width from 100svh); the owner rejected that, so the picture is full width again. */
   .stage.dome > div:first-child { gap: var(--space-3); }
   .stage.dome > div:first-child > .phase-head { order: -1; padding-top: 0; }
   .stage.dome > div:first-child > .flap { order: 1; }
@@ -1332,7 +1332,7 @@ body.site-open > .bar, body.site-open > main, body.site-open > .demo, body.site-
   .brand { min-width: 0; }
   .brand-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 }
-/* Upright tablet, 761 to 960 px (2026-11-13, Jason's Samsung tablet). Beside a 440 px Moon the right-hand column was 304 px wide
+/* Upright tablet, 761 to 960 px (2026-11-13, the owner's Samsung tablet). Beside a 440 px Moon the right-hand column was 304 px wide
    at 800 px: "Waxing Crescent" broke over two lines, the time box was cramped and the event board fell to two rows of 18 px
    letters. Here the two columns share the width 9 : 10, the phase name has a row to itself (as on phones) and the event board
    runs under both columns at the full width, one row of 26 letters. From 961 px up the right-hand column is 465 px or more
@@ -2794,7 +2794,7 @@ var LUNARA_RADIO = null;
 var LUNARA_PLAYLIST = {"name":"Space Playlist","links":{},"tracks":[{"n":1,"title":"Starlight (Taylor's Version)","artist":"Taylor Swift","album":"Red (Taylor's Version)","date":"2021-11-12","dur":"3:40"},{"n":2,"title":"Girl From Mars","artist":"Ash","album":"1977","date":"1996-05-06","dur":"3:30"},{"n":3,"title":"Subway to Venus (Remastered 2003)","artist":"Red Hot Chili Peppers","album":"Mother's Milk","date":"1989-08-16","dur":"4:25"},{"n":4,"title":"Andromeda (feat. DRAM)","artist":"Gorillaz, DRAM","album":"Humanz","date":"2017-04-28","dur":"3:17"},{"n":5,"title":"Telstar (Remastered)","artist":"The Tornados","album":"The Original Telstar: The Sounds of the Tornadoes","date":"1962","dur":"3:15"},{"n":6,"title":"Fly Me To The Moon (2008 Remastered)","artist":"Frank Sinatra, Count Basie","album":"It Might as Well Be Swing","date":"1964","dur":"2:30"},{"n":7,"title":"Astronomy Domine","artist":"Pink Floyd","album":"The Piper at the Gates of Dawn","date":"1967-08-04","dur":"4:12"},{"n":8,"title":"2000 Light Years From Home","artist":"The Rolling Stones","album":"Their Satanic Majesties Request","date":"1967-12-08","dur":"4:45"},{"n":9,"title":"Space Oddity (2015 Remaster)","artist":"David Bowie","album":"Space Oddity","date":"1969-11-14","dur":"5:15"},{"n":10,"title":"Silver Bird (2012 Remastered)","artist":"UFO","album":"UFO 2: Flying","date":"1971","dur":"6:54"},{"n":11,"title":"Space Is Deep","artist":"Hawkwind","album":"Doremi Fasol Latido","date":"1972-11-24","dur":"6:22"},{"n":12,"title":"Starman (2012 Remaster)","artist":"David Bowie","album":"The Rise and Fall of Ziggy Stardust and the Spiders from Mars","date":"1972-06-16","dur":"4:10"},{"n":13,"title":"Rocket Man (I Think It's Going To Be A Long, Long Time)","artist":"Elton John","album":"Honky Château","date":"1972-05-19","dur":"4:40"},{"n":14,"title":"A Spaceman Came Travelling","artist":"Chris de Burgh","album":"Spanish Train and Other Stories","date":"1975-11-01","dur":"5:10"},{"n":15,"title":"Life on Mars","artist":"Dexter Wansel","album":"Life on Mars","date":"1976","dur":"5:50"},{"n":16,"title":"Calling Occupants Of Interplanetary Craft (The Recognized Anthem Of World Contact Day)","artist":"The Carpenters","album":"Passage","date":"1977-09-23","dur":"7:06"},{"n":17,"title":"I Lost My Heart to a Starship Trooper","artist":"Sarah Brightman, Hot Gossip","album":"","date":"","dur":"3:42"},{"n":18,"title":"Nightflight to Venus","artist":"Boney M.","album":"Nightflight to Venus","date":"1978-06-23","dur":"4:46"},{"n":19,"title":"Walking On The Moon","artist":"The Police","album":"Reggatta de Blanc","date":"1979-10-05","dur":"5:02"},{"n":20,"title":"European Man","artist":"Landscape","album":"From the Tea-rooms of Mars ....","date":"1981","dur":"4:22"},{"n":21,"title":"Deetour (Moplen Cosmic Trip)","artist":"Karen Young","album":"Deetour Moplen Remixes","date":"2020-08-20","dur":"8:02"},{"n":22,"title":"Apollo 9","artist":"Adam Ant","album":"Vive Le Rock","date":"1985-09-02","dur":"3:22"},{"n":23,"title":"Clouds Across the Moon","artist":"The RAH Band","album":"Mystery","date":"1985","dur":"6:49"},{"n":24,"title":"Little Fluffy Clouds (7\" Edit)","artist":"The Orb","album":"The Orb's Adventures Beyond the Ultraworld","date":"1991-04-02","dur":"4:05"},{"n":25,"title":"Spanish Castles In Space","artist":"The Orb","album":"The Orb's Adventures Beyond the Ultraworld","date":"1991-04-02","dur":"15:05"},{"n":26,"title":"Earth (Gaia)","artist":"The Orb","album":"The Orb's Adventures Beyond the Ultraworld","date":"1991-04-02","dur":"9:48"},{"n":27,"title":"Back Side Of The Moon","artist":"The Orb","album":"The Orb's Adventures Beyond the Ultraworld","date":"1991-04-02","dur":"14:15"},{"n":28,"title":"Moonbuilding 2703 AD","artist":"The Orb","album":"Moonbuilding 2703 AD","date":"2015-06-22","dur":"13:04"},{"n":29,"title":"Super Nova At The End Of The Universe","artist":"The Orb","album":"The Orb's Adventures Beyond the Ultraworld","date":"1991-04-02","dur":"11:56"},{"n":30,"title":"The Voyage (Deep Mix)","artist":"Subculture, Hayden Andre, Marcus Turcotte","album":"","date":"","dur":""},{"n":31,"title":"Spaceman","artist":"Babylon Zoo","album":"The Boy with the X-Ray Eyes","date":"1996-02-05","dur":"5:40"},{"n":32,"title":"Cosmic Girl (Remastered 2013)","artist":"Jamiroquai","album":"Travelling Without Moving","date":"1996-08-28","dur":"4:03"},{"n":33,"title":"Intergalactic","artist":"Beastie Boys","album":"Hello Nasty","date":"1998-07-06","dur":"3:51"},{"n":34,"title":"We Are All Made Of Stars","artist":"Moby","album":"18","date":"2002-05-13","dur":"4:32"},{"n":35,"title":"Supermassive Black Hole","artist":"Muse","album":"Black Holes and Revelations","date":"2006-07-03","dur":"3:29"},{"n":36,"title":"SPACE MAN","artist":"Sam Ryder","album":"There's Nothing but Space, Man!","date":"2022-12-09","dur":"3:37"},{"n":37,"title":"Mr. Spaceman","artist":"The Byrds","album":"Fifth Dimension","date":"1966-07-18","dur":"2:09"},{"n":38,"title":"I'm the Urban Spaceman","artist":"Bonzo Dog Band","album":"Tadpoles","date":"1969-08-01","dur":"2:24"},{"n":39,"title":"It Came Out Of The Sky","artist":"Creedence Clearwater Revival","album":"Willy and the Poor Boys","date":"1969-11-02","dur":"2:53"},{"n":40,"title":"Space Truckin' (2012 Remaster)","artist":"Deep Purple","album":"Machine Head","date":"1972-03-30","dur":"4:31"},{"n":41,"title":"Space Junk","artist":"DEVO","album":"Q: Are We Not Men? A: We Are Devo!","date":"1978-08-28","dur":"2:14"},{"n":42,"title":"Space Age Love Song","artist":"A Flock Of Seagulls","album":"A Flock of Seagulls","date":"1982-04-09","dur":"3:52"},{"n":43,"title":"A Space Boy Dream","artist":"Belle & Sebastian","album":"The Boy with the Arab Strap","date":"1998-09-07","dur":"3:00"},{"n":44,"title":"I.G.Y.","artist":"Donald Fagen","album":"The Nightfly","date":"1982-10-01","dur":"6:04"},{"n":45,"title":"Major Tom","artist":"Peter Schilling","album":"Error in the System","date":"1983-03-24","dur":"5:03"},{"n":46,"title":"Man on the Moon","artist":"R.E.M.","album":"Automatic for the People","date":"1992-10-05","dur":"5:13"},{"n":47,"title":"Life on Mars?","artist":"David Bowie","album":"Hunky Dory","date":"1971-12-17","dur":"3:48"},{"n":48,"title":"Ashes to Ashes","artist":"David Bowie","album":"Scary Monsters (and Super Creeps)","date":"1980-09-12","dur":"4:23"},{"n":49,"title":"Moon River","artist":"Andy Williams","album":"Moon River and Other Great Movie Themes","date":"1962-03-26","dur":"2:45"},{"n":50,"title":"Moondance","artist":"Van Morrison","album":"Moondance","date":"1970-02-28","dur":"4:35"},{"n":51,"title":"Dancing in the Moonlight","artist":"King Harvest","album":"Dancing in the Moonlight","date":"1973","dur":"2:57"},{"n":52,"title":"Harvest Moon","artist":"Neil Young","album":"Harvest Moon","date":"1992-11-02","dur":"5:03"},{"n":53,"title":"Moonshadow","artist":"Cat Stevens","album":"Teaser and the Firecat","date":"1971-10-01","dur":"2:52"},{"n":54,"title":"The Killing Moon","artist":"Echo & the Bunnymen","album":"Ocean Rain","date":"1984-05-04","dur":"5:47"},{"n":55,"title":"New Moon on Monday","artist":"Duran Duran","album":"Seven and the Ragged Tiger","date":"1983-11-21","dur":"4:16"},{"n":56,"title":"Satellite of Love","artist":"Lou Reed","album":"Transformer","date":"1972-11-08","dur":"3:40"},{"n":57,"title":"Blue Moon of Kentucky","artist":"Bill Monroe","album":"","date":"1947","dur":"3:03"}]};
 var LUNARA_EXTRA_JOKES = [];
 var LUNARA_EGG_AUDIO = [];
-// Phone compass for "Your sky" (2026-11-14, Jason: "when you turn your phone it changes your sky view").
+// Phone compass for "Your sky" (2026-11-14, the owner: "when you turn your phone it changes your sky view").
 // While it is on, the sky looks where the BACK of the phone points (Astro.lookFrom), so holding the phone up
 // like a window shows the stars behind it. A browser hands compass readings only to a page on https (or
 // localhost), and to a framed page only when the frame's host allows it. So: the button is shown only where
@@ -3315,7 +3315,7 @@ var Compass = (function () {
       ctx.beginPath(); ctx.ellipse(x, y, r * 2.3, r * 0.8, -0.35, 0, 2 * Math.PI); ctx.stroke(); ctx.restore();
     }
   }
-  // ---- "Around the Moon": a 20-180 degree field that can be dragged off the Moon (Jason, 2026-11-12).
+  // ---- "Around the Moon": a 20-180 degree field that can be dragged off the Moon (the owner, 2026-11-12).
   // The view centre is the Moon plus an offset in compass bearing and height (RA and Dec when no place is set), so
   // a moved view still follows the Moon through the night. No offset = the Moon dead centre, exactly as before.
   var MOON_PAN_LAT = 89.5;      // the centre stops just short of straight up, where a bearing has no meaning
@@ -3556,7 +3556,7 @@ var Compass = (function () {
   // A plain scroll over the sky scrolls the page (when it zoomed, the page got stuck on the sky). Zoom is
   // Cmd/Ctrl + scroll or a trackpad pinch (browsers send a pinch as a ctrl wheel), the -/+ buttons, or
   // the +/- keys. A plain scroll shows how to zoom in the caption for a moment.
-  // History: plain scroll zoomed until 2026-11-09, then scrolled the page; on 2026-11-12 13:15 Jason picked
+  // History: plain scroll zoomed until 2026-11-09, then scrolled the page; on 2026-11-12 13:15 the owner picked
   // plain scroll = zoom in the ops-check mock ("switch B"), found the page stuck on the sky again the same
   // afternoon, and asked for the 11-09 rule back. Do not make a plain scroll zoom again.
   var ZOOM_KEY = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘' : 'Ctrl', ZOOM_HINT = ZOOM_KEY + ' + scroll or pinch to zoom';
@@ -3646,14 +3646,14 @@ var Compass = (function () {
       VIEW.mode = b.dataset.view; if (VIEW.mode === 'moon') VIEW.moff = null;      // "Around the Moon" always opens on the Moon
       saveView(); state.shownMode = null; aim.x = aim.y = null;   // the mark starts from the centre of the new view
       // Back to Your sky after a "Show moonrise" jump: undo the jump, so the sky is not left in tomorrow's daylight.
-      // Only when the slider is still where the page put it; a time picked by hand stays (Jason, 2026-11-11).
+      // Only when the slider is still where the page put it; a time picked by hand stays (the owner, 2026-11-11).
       if (b.dataset.view === 'local' && autoHour !== null && +$('scrub').value === autoHour) $('scrub').value = 0;
       if (b.dataset.view === 'local') autoHour = null;
       $('card').hidden = true; requestDraw(true);
       if (b.dataset.view === 'moon' && state.m && !moonUp(state.m)) moonDownCard();
     };
   });
-  // The sky is always the big full-width panel (Jason, 2026-11-09: it used to swap between side-by-side and
+  // The sky is always the big full-width panel (the owner, 2026-11-09: it used to swap between side-by-side and
   // full width as the Moon rose and set). 'dome' = that layout, always on; 'look' = the grab-and-drag behaviour,
   // which both views have since 2026-11-12 (it was Your sky only), with the Look buttons as the way back to the Moon.
   function layoutStage() { var st = document.querySelector('.stage'); st.classList.add('dome'); st.classList.add('look'); $('lookBtns').hidden = false; }
@@ -5301,7 +5301,7 @@ var Compass = (function () {
     //   key-up      the same 20 ms pop as radioPop, then static that is gone when the picture's static is (KEY_STATIC of the way in)
     //   carrier     a quiet hiss that swells and falls with the picture's ripple (sin of the way through)
     //   squelch tail  a louder burst of noise as the carrier drops, cut off as the picture settles
-    //   outro tone  the 2475 Hz Quindar beep that ended a CAPCOM call, just before the squelch tail (Jason, 2026-11-11;
+    //   outro tone  the 2475 Hz Quindar beep that ended a CAPCOM call, just before the squelch tail (the owner, 2026-11-11;
     //               the first version had no tone). No intro tone: the key-up pop is the start.
     var KEY_STATIC = 0.12, KEY_TAIL = 0.14;   // 0.12 is panel.js's "u < 0.12" static; the tail is in seconds
     function radioKeyLevel(t, dur) {   // loudness t seconds into a transmission of dur seconds
