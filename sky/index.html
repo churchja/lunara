@@ -231,6 +231,19 @@ input[type="range"] { width: 100%; accent-color: var(--accent); min-height: 44px
 /* phone compass: what the Compass button is doing, in words, beside the toolbar */
 .cmpnote { align-self: center; font-size: var(--t-xs); color: var(--fg-2); pointer-events: none; }
 .cmpnote:not(:empty) { padding: var(--space-1) var(--space-2); background: color-mix(in srgb, var(--panel) 82%, transparent); border-radius: var(--radius); }
+/* phone compass set-up help: on the lamp's own page (plain http) a phone keeps its compass to itself, so the
+   button opens these steps instead. They sit on a row of their own under the toolbar buttons. The toolbar
+   switches pointer events off, so the row switches them back on: the link and the address must take a tap. */
+.skyseg button[aria-expanded="true"] { background: var(--accent-fill, var(--accent)); color: var(--accent-ink); }
+.skyseg button[aria-expanded="true"]:focus-visible { outline-color: var(--accent-ink); outline-offset: -4px; }
+.cmphelp { flex: 1 1 100%; display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-2) var(--space-2); border-top: 1px solid var(--line); color: var(--fg-2); pointer-events: auto; }
+.cmphelp > * { margin: 0; max-width: 60ch; }
+.cmphelp h3 { font-family: var(--font-head); font-weight: var(--head-weight); letter-spacing: var(--head-track); font-size: var(--t-lg); color: var(--fg); text-wrap: balance; }
+.cmphelp a { color: var(--accent); text-underline-offset: 3px; }
+.cmphelp ol { padding-left: 1.5em; display: grid; gap: var(--space-2); }
+.cmphelp b { color: var(--fg); }
+.cmphelp code { font-family: var(--font-data); font-size: inherit; color: var(--fg); padding: 1px var(--space-1); border: 1px solid var(--line-strong); border-radius: var(--radius); overflow-wrap: anywhere; -webkit-user-select: all; user-select: all; }
+@media (pointer: coarse) { .cmphelp a { display: inline-block; padding: 12px 0; margin: -12px 0; } }   /* a 44 px tall touch area, like .updlink a */
 
 /* tap card on the sky chart */
 .card {
@@ -1025,6 +1038,14 @@ input[type="color"] { width: 64px; height: 44px; border: 1px solid var(--line-st
 .pass-alert .btn { flex: none; padding: 6px 12px; background: transparent; color: inherit; border: 1px solid currentColor; letter-spacing: .08em; }
 .pass-alert .btn[hidden] { display: none; }
 .wmap.pa-view .pass-alert { border-color: #7cf; color: #7cf; }
+/* On a phone the map is about 130 px tall, and the alert lying on it hid most of it (Jason's Pixel, 11-14:
+   59% of the map at 412 px wide, 89% at 360 px). Where the map is narrower than 600 px the alert sits under
+   the map instead, and the pulse tint keeps to the map: 360 by 136 degrees, the shape wall.js draws. */
+.wmap-frame { container: wmapf / inline-size; }
+@container wmapf (max-width: 600px) {
+  .pass-alert { position: relative; left: auto; right: auto; bottom: auto; margin-top: var(--space-2); }
+  .wmap-frame::after { bottom: auto; aspect-ratio: 360 / 136; }
+}
 .pa-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: var(--rule); }
 .pa-ctl .btn { font-size: var(--t-xs); padding: 4px 10px; }
 @media (prefers-reduced-motion: reduce) {
@@ -1562,6 +1583,19 @@ body.site-open > .bar, body.site-open > main, body.site-open > .demo, body.site-
             <button type="button" id="tMw" aria-pressed="true">Milky Way</button>
           </div>
           <span class="cmpnote" id="cmpNote" role="status" hidden></span>
+          <div class="cmphelp" id="cmpHelp" role="region" aria-labelledby="cmpHelpH" hidden>
+            <h3 id="cmpHelpH">Turn on the compass</h3>
+            <p>A phone only shares its compass with a page whose address starts with https. This lamp's page starts with http, so the compass is off here. There are two ways to get it.</p>
+            <p><a href="https://churchja.github.io/lunara/sky/" target="_blank" rel="noopener noreferrer">Open the sky page on the web</a>. Nothing to set up. It shows the sky, not this lamp's controls, and it needs the internet. There, tap Your sky, then Compass.</p>
+            <p>Or switch it on for this page. You do this once per phone, in Chrome on Android:</p>
+            <ol>
+              <li>In Chrome's address bar, type <code>chrome://flags</code> and go.</li>
+              <li>In the search box on that page, type <b>insecure origins</b>.</li>
+              <li>In the box under <b>Insecure origins treated as secure</b>, type this address: <code id="cmpAddr"></code></li>
+              <li>Change <b>Disabled</b> to <b>Enabled</b>.</li>
+              <li>Tap <b>Relaunch</b>. Then come back to this page and tap Your sky, then Compass.</li>
+            </ol>
+          </div>
         </div>
         <div class="card" id="card" hidden tabindex="-1" role="dialog" aria-label="Sky object" aria-live="polite"></div>
       </figure>
@@ -2798,10 +2832,23 @@ var Compass = (function () {
   function init(o) {
     var win = o.win, doc = o.doc, astro = o.astro;
     var seg = doc.getElementById('cmpSeg'), btn = doc.getElementById('cmpBtn'), note = doc.getElementById('cmpNote');
+    var help = doc.getElementById('cmpHelp'), addr = doc.getElementById('cmpAddr');
     if (!seg || !btn) return null;
     var on = false, got = false, timer = null, cur = null, sent = null;
     function can() { return !!win.DeviceOrientationEvent && win.isSecureContext === true; }
     function say(t) { if (note) note.textContent = t; }
+    // Set-up help. A phone gives its compass only to a page with a secure (https) address; on a plain http page
+    // Chrome does not even define DeviceOrientationEvent, so can() is false on the lamp's own page and the button
+    // would stay hidden there. On such a page, on a touch device, the button opens the steps that switch the
+    // compass on (#cmpHelp) instead. Settled once: a page does not change between secure and not secure.
+    var guide = !!help && win.isSecureContext === false && !!win.navigator && win.navigator.maxTouchPoints > 0;
+    function fold(open) { help.hidden = !open; btn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+    if (guide) {
+      btn.removeAttribute('aria-pressed'); btn.setAttribute('aria-controls', 'cmpHelp');
+      btn.setAttribute('title', 'How to turn on the compass on this phone'); btn.textContent = 'Set up compass';
+      if (addr) addr.textContent = win.location && win.location.origin ? win.location.origin : '';
+      fold(false);
+    }
     function hear(e) {
       if (!on) return;
       var r = reading(e);
@@ -2830,8 +2877,11 @@ var Compass = (function () {
       var show = can() && o.local();
       seg.hidden = !show; if (note) note.hidden = !show;
       if (!show && on) stop('');
+      // set-up help: the button shows on "Your sky" here too; leaving that view closes the steps
+      if (guide) { seg.hidden = !o.local(); if (seg.hidden && !help.hidden) fold(false); }
     }
     btn.addEventListener('click', function () {
+      if (guide) { if (o.local()) fold(help.hidden); return; }      // the steps, not the compass
       if (on) { stop(''); return; }
       if (!can() || !o.local()) return;
       var D = win.DeviceOrientationEvent;
