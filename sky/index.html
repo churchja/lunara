@@ -6857,6 +6857,7 @@ var LUNARA_WONDERS = [{"id": "wonder-burntcoat", "name": "Burntcoat Head", "wher
     if (src === 'the lamp' || OUT_SOURCES.some(function (o) { return o.name === src; })) store('lunara.iss', JSON.stringify({ l1: t.l1, l2: t.l2, src: src }));   // only fresh downloads are saved
     draw(true);
     qRender();   // the quiet-hours bar marks the next pass
+    return true;   // taken: it is newer than what the page held
   }
   function ageDays(ms) { return tle ? (ms - tle.epoch) / 864e5 : Infinity; }
   function fetchText(url, ms) {
@@ -6881,6 +6882,8 @@ var LUNARA_WONDERS = [{"id": "wonder-burntcoat", "name": "Burntcoat Head", "wher
     var r = null; try { r = JSON.parse(text || 'null'); } catch (e) { /* unreadable: start again */ }
     var out = { at: r && isFinite(r.at) && r.at > 0 ? +r.at : 0, src: {} };
     OUT_SOURCES.forEach(function (o) { var m = r && r.src && r.src[o.name]; if (m && m.fails >= 1 && isFinite(m.at)) out.src[o.name] = { fails: Math.min(8, Math.floor(m.fails)), at: +m.at }; });
+    var g = r && r.got;   // who answered in the last round, and whether its data was newer (2026-11-16)
+    if (g && OUT_SOURCES.some(function (o) { return o.name === g.src; })) out.got = { src: g.src, newer: g.newer === true };
     return out;
   }
   function srcDue(m, now) { return !m || m.at > now || now - m.at >= outWaitMs(m.fails); }   // a time in the future means the clock was changed: ask
@@ -6901,6 +6904,17 @@ var LUNARA_WONDERS = [{"id": "wonder-burntcoat", "name": "Burntcoat Head", "wher
     if (OUT_SOURCES.some(function (o) { return !rec.src[o.name]; })) return 'The page asked for newer data ' + ago + ' and was given none newer.';
     return 'The last try for newer data, ' + ago + ', got no answer. ' + (wait > 0 ? 'The page waits ' + hoursText(wait) + ' before the next.' : 'The page tries again soon.');
   }
+  function checkNote(rec, now, host) {   // one sentence on the last round: who answered, who did not (2026-11-16)
+    if (devHost(host) || !rec.at || rec.at > now) return '';
+    var parts = [];
+    OUT_SOURCES.forEach(function (o) {
+      var m = rec.src[o.name];
+      if (rec.got && rec.got.src === o.name) parts.push(o.name + (rec.got.newer ? ' sent newer data' : ' had nothing newer'));
+      else if (m && m.at >= rec.at) parts.push(o.name + ' gave no answer');
+      else if (m) parts.push(o.name + ' was left alone after ' + m.fails + (m.fails === 1 ? ' try' : ' tries') + ' with no answer');
+    });
+    return ' Last check ' + hoursText(now - rec.at) + ' ago' + (parts.length ? ': ' + parts.join('; ') : '') + '.';
+  }
   function askLoad() { return askRec(store(ASK_KEY) || askMem); }
   function askSave(rec) { askMem = JSON.stringify(rec); store(ASK_KEY, askMem); }   // askMem: the same rule holds while storage is off
   function refreshTle() {
@@ -6913,12 +6927,12 @@ var LUNARA_WONDERS = [{"id": "wonder-burntcoat", "name": "Burntcoat Head", "wher
     if (tle && now - tle.epoch < ASK_AGE_H * 3600e3) return;
     var rec = askLoad(), plan = outPlan(rec, now, location.hostname, navigator.onLine);
     if (!plan.length) return;
-    rec.at = now; askSave(rec);   // written before the first request: a reload in the middle of it must not ask again
+    rec.at = now; delete rec.got; askSave(rec);   // written before the first request: a reload in the middle of it must not ask again
     (function ask(i) {
       if (i >= plan.length) return;
       var o = plan[i];
       fetchText(o.url).then(function (t) { var p = parseTle(t); if (!p) throw new Error('no orbit data in the answer'); return p; })
-        .then(function (p) { delete rec.src[o.name]; askSave(rec); adopt(p, o.name); },
+        .then(function (p) { delete rec.src[o.name]; rec.got = { src: o.name, newer: false }; askSave(rec); if (adopt(p, o.name) === true) { rec.got.newer = true; askSave(rec); } },
           function () { var m = rec.src[o.name]; rec.src[o.name] = { fails: (m ? m.fails : 0) + 1, at: Date.now() }; askSave(rec); ask(i + 1); });
     })(0);
   }
@@ -7000,7 +7014,8 @@ var LUNARA_WONDERS = [{"id": "wonder-burntcoat", "name": "Burntcoat Head", "wher
       approx + wk(p.start) + ' ' + L.tOf(p.start) + '<small>' + Math.max(1, Math.round((p.end - p.start) / 60e3)) + ' min · up to ' + Math.round(p.maxEl) + '° · ' + compass(p.azStart) + ' → ' + compass(p.azEnd) + '</small>';
     var h = age * 24;
     $('issNote').textContent = 'Orbit data ' + (h < 48 ? Math.max(0, Math.round(h)) + ' h' : Math.round(age) + ' days') + ' old, from ' + (tle.src === 'built in' ? 'the copy built into this page' : tle.src) + '.' +
-      (age > FRESH_D ? ' Times are approximate. ' + askNote(askLoad(), Date.now(), location.hostname) : ageV > FRESH_D ? ' Times this far ahead are approximate.' : '');
+      (age > FRESH_D ? ' Times are approximate. ' + askNote(askLoad(), Date.now(), location.hostname) : ageV > FRESH_D ? ' Times this far ahead are approximate.' : '') +
+      (age > FRESH_D ? '' : checkNote(askLoad(), Date.now(), location.hostname));   // old data already says what the last ask brought
   }
 
   // ================================================================ B. ground-track map
