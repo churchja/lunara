@@ -416,6 +416,23 @@ input[type="color"] { width: 64px; height: 44px; border: 1px solid var(--line-st
 #tideLocal { position: absolute; right: 36px; top: 50%; transform: translateY(-50%); pointer-events: none; white-space: nowrap;
   font-family: var(--font-data); font-variant-numeric: tabular-nums; color: var(--fg); }
 .tides .tide-sel.fav select { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }   /* a favourite is chosen */
+/* the star that adds or removes a favourite (2026-11-20): station list only, so the room for it is made only then */
+.tides .tide-sel.can-fav { padding-right: 52px; }
+.tides .tide-sel.can-fav #tideLocal { right: 88px; }
+.tide-fav { position: absolute; right: 0; top: 0; width: 44px; height: 44px; min-height: 44px; padding: 0; background: var(--panel); color: var(--fg-2);
+  border: 1px solid var(--line-strong); border-radius: var(--radius); font: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
+.tide-fav[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+/* find another station (2026-11-20): shares the "why" row of the card, which is empty on the station list */
+.ro-tide > .tide-find-wrap { grid-area: why; margin: 0 0 var(--space-3); min-width: 0; }
+.tide-find-btn { min-height: 44px; padding: 0 var(--space-2); background: transparent; border: 0; color: var(--accent); font: inherit; font-size: var(--t-sm); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.tide-find { margin-top: var(--space-2); padding: var(--space-3); border: 1px solid var(--line-strong); border-radius: var(--radius); }
+.tide-find input { width: 100%; margin: var(--space-1) 0 var(--space-2); }
+.tide-find .note { margin: 0 0 var(--space-2); max-width: none; }
+.tide-hits { display: grid; gap: var(--space-1); }
+.tide-hit { min-height: 44px; padding: var(--space-1) var(--space-3); text-align: left; background: var(--panel); color: var(--fg); border: 1px solid var(--line-strong); border-radius: var(--radius); font: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.tide-hit:hover { border-color: var(--accent); }
+.tide-world { width: 100%; margin-top: var(--space-3); border-style: dashed; }
+.tide-find .tide-world-note { margin: var(--space-2) 0 0; }
 .ro-tide > .tide-why { grid-area: why; margin: 0 0 var(--space-3); color: var(--fg-2); font-size: var(--t-sm); max-width: none; }
 .ro-tide > .tide-why b { color: var(--fg); }
 @media (max-width: 520px) { #tideLocal small { display: none; } }
@@ -1739,7 +1756,18 @@ body.site-open > .bar, body.site-open > main, body.site-open > .demo, body.site-
           <button type="button" data-src="near" aria-pressed="true" aria-label="Nearest stations"><span class="lb-l">Nearest stations</span><span class="lb-s">Nearest</span></button><button type="button" data-src="surf" aria-pressed="false">Top surf spots</button><button type="button" data-src="wonder" aria-pressed="false">Wonders</button>
         </div>
         <label class="label" for="tideStation" id="tideLab">Station (nearest first)</label>
-        <div class="tide-sel"><select id="tideStation" aria-describedby="tideLocal"></select><span id="tideLocal" aria-hidden="true"></span></div>
+        <div class="tide-sel"><select id="tideStation" aria-describedby="tideLocal"></select><span id="tideLocal" aria-hidden="true"></span><button type="button" id="tideFavBtn" class="tide-fav" aria-pressed="false" aria-label="Add this station to your favourites" hidden>&#9734;</button></div>
+        <div class="tide-find-wrap">
+          <button type="button" id="tideFindBtn" class="tide-find-btn" aria-expanded="false" aria-controls="tideFind" hidden>Find another station</button>
+          <div class="tide-find" id="tideFind" hidden>
+            <label class="label" for="tideQ">Search NOAA tide stations (United States)</label>
+            <input type="text" id="tideQ" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="60" placeholder="Town, harbour or state">
+            <p class="note" id="tideFindMsg" role="status"></p>
+            <div class="tide-hits" id="tideFindList"></div>
+            <button type="button" id="tideWorldBtn" class="tide-hit tide-world">Use the worldwide tide model for my location</button>
+            <p class="note tide-world-note">Worldwide tides come from a global ocean model: good on open coasts, but they can be hours out inside bays, sounds and rivers. Type a latitude and longitude (for example 50.37, -4.14) to use another place.</p>
+          </div>
+        </div>
         <p class="tide-why" id="tideWhy" hidden></p>
         <canvas id="tideCurve" role="img" aria-label="Tide height through the day"></canvas>
         <dl id="tideNext"></dl>
@@ -2655,6 +2683,33 @@ var MOON_TB=[[0,0,0,1,5128122],[0,0,1,1,280602],[0,0,1,-1,277693],[2,0,0,-1,1732
     });
     return extra;
   }
+  // Stations a visitor adds from NOAA's list (app.js, 2026-11-20): the layout of a DATA row, and unlike the
+  // extras they join nearest(). removeStation takes back one that failed its check against NOAA.
+  function addStation(r) {
+    if (!r || byId[r.id]) return false;
+    var st = { id: r.id, name: r.name, state: r.state, lat: r.lat, lon: r.lon, added: true };
+    stations.push(st); byId[r.id] = { meta: st, z0: r.z0, hc: r.hc, years: {} };
+    return true;
+  }
+  // Subordinate stations (2026-11-20). NOAA gives these no constants, only offsets from a reference station:
+  // every high and low water of the reference is moved in time (th, tl: minutes) and its height multiplied
+  // (hh, hl: ratios) or, when fixed is true, shifted (hh, hl: feet). The reference must already be here.
+  // NOAA publishes nothing between a subordinate's highs and lows, so the curve between them is a half cosine.
+  function addSub(r) {
+    var ref = r && byId[r.ref];
+    if (!r || byId[r.id] || !ref || ref.sub) return false;
+    var st = { id: r.id, name: r.name, state: r.state, lat: r.lat, lon: r.lon, added: true };
+    stations.push(st);
+    byId[r.id] = { meta: st, z0: 0, hc: ref.hc, years: {}, sub: { ref: ref, th: r.th, tl: r.tl, hh: r.hh, hl: r.hl, fixed: !!r.fixed } };
+    return true;
+  }
+  function removeStation(id) {
+    var s = byId[id];
+    if (!s || !s.meta.added) return false;   // never a built-in station
+    for (var k in byId) if (byId[k].sub && byId[k].sub.ref === s) return false;   // nor one a subordinate stands on
+    stations.splice(stations.indexOf(s.meta), 1); delete byId[id];
+    return true;
+  }
   function get(id) {
     var s = byId[String(id)];
     if (!s) throw new Error('Tides: unknown station ' + id);
@@ -2696,7 +2751,7 @@ var MOON_TB=[[0,0,0,1,5128122],[0,0,1,1,280602],[0,0,1,-1,277693],[2,0,0,-1,1732
     return d * 3600000;
   }
 
-  function height(id, ms) { return evalH(prepAt(get(id), ms), ms); }
+  function height(id, ms) { var s = get(id); return s.sub ? subCurve(s, ms, ms + 1, 2)[0][1] : evalH(prepAt(s, ms), ms); }
 
   // Roots of dh/dt on a 6-minute grid aligned to the epoch (so results do not depend on where a
   // window starts), refined by bisection to < 0.5 s.
@@ -2725,7 +2780,32 @@ var MOON_TB=[[0,0,0,1,5128122],[0,0,1,1,280602],[0,0,1,-1,277693],[2,0,0,-1,1732
   // NOAA omits is <= 117 min apart here and every pair it publishes is >= 122 min apart.
   var MIN_GAP = 120 * 60000, PAD = 6 * 3600000;
   function extremes(id, startMs, endMs) {
-    var ex = rawExtremes(get(id), startMs - PAD, endMs + PAD), i = 0;
+    var s = get(id);
+    return s.sub ? subExtremes(s, startMs, endMs) : extremesOf(s, startMs, endMs);
+  }
+  function subExtremes(s, startMs, endMs) {
+    var b = s.sub, span = Math.max(Math.abs(b.th), Math.abs(b.tl)) * 60000;
+    return extremesOf(b.ref, startMs - span, endMs + span).map(function (e) {
+      var hi = e.type === 'H', k = hi ? b.hh : b.hl;
+      return { ms: e.ms + (hi ? b.th : b.tl) * 60000, ft: b.fixed ? e.ft + k : e.ft * k, type: e.type };
+    }).sort(function (x, y) { return x.ms - y.ms; }).filter(function (e) { return e.ms >= startMs && e.ms <= endMs; });
+  }
+  var SUB_PAD = 30 * 3600000;   // far enough to find a high or low either side of any moment, diurnal tides included
+  function subCurve(s, startMs, endMs, k) {
+    var ex = subExtremes(s, startMs - SUB_PAD, endMs + SUB_PAD), pts = [], j = 0;
+    for (var i = 0; i < k; i++) {
+      var t = startMs + (endMs - startMs) * i / (k - 1), h;
+      while (j + 1 < ex.length && ex[j + 1].ms <= t) j++;
+      var a = ex[j], c = ex[j + 1];
+      if (!a) h = NaN;
+      else if (!c || t < a.ms) h = a.ft;
+      else h = a.ft + (c.ft - a.ft) * (1 - Math.cos(Math.PI * (t - a.ms) / (c.ms - a.ms))) / 2;
+      pts.push([t, h]);
+    }
+    return pts;
+  }
+  function extremesOf(s, startMs, endMs) {
+    var ex = rawExtremes(s, startMs - PAD, endMs + PAD), i = 0;
     while (i + 1 < ex.length) {
       if (ex[i + 1].ms - ex[i].ms < MIN_GAP) { ex.splice(i, 2); if (i > 0) i--; } else i++;
     }
@@ -2734,6 +2814,7 @@ var MOON_TB=[[0,0,0,1,5128122],[0,0,1,1,280602],[0,0,1,-1,277693],[2,0,0,-1,1732
 
   function curve(id, startMs, endMs, n) {
     var s = get(id), pts = [], k = Math.max(2, n | 0);
+    if (s.sub) return subCurve(s, startMs, endMs, k);
     for (var i = 0; i < k; i++) {
       var t = startMs + (endMs - startMs) * i / (k - 1);
       pts.push([t, evalH(prepAt(s, t), t)]);
@@ -2776,7 +2857,7 @@ var MOON_TB=[[0,0,0,1,5128122],[0,0,1,1,280602],[0,0,1,-1,277693],[2,0,0,-1,1732
   }
 
   root.Tides = {
-    stations: stations, nearest: nearest, height: height, extremes: extremes, curve: curve, addExtra: addExtra, extra: function () { return extra; },
+    stations: stations, nearest: nearest, height: height, extremes: extremes, curve: curve, addExtra: addExtra, extra: function () { return extra; }, addStation: addStation, addSub: addSub, removeStation: removeStation,
     form: form, rangeMonth: rangeMonth,
     CONSTITUENTS: NAMES,
     // test hooks (not for the UI)
@@ -4071,6 +4152,333 @@ var Compass = (function () {
     tag: 'The tide you can\u2019t see',
     why: 'The Great Lakes do have a real twice-daily tide, but under 5 cm (2 in) even at spring tide. What moves the water is wind and seiches, the lake sloshing like a bathtub: on 21 June 2025 a storm seiche lifted Lake Superior about 45 inches in under 2.5 hours.' }];
   var TIDE_FAV = [];   // starred favourites (2026-11-10); personal, so tools/build_page.py empties this in the public share
+  // Favourites anyone can set (2026-11-20): a star beside the station picker. They are kept in this browser only
+  // (lunara.tideFav, a JSON list of station ids). Until the first star or un-star the list is TIDE_FAV above.
+  // BEGIN TIDE FAV
+  function favParse(raw, dflt) {   // raw: the stored text, or null when nothing was ever saved
+    if (raw === null || raw === undefined) return dflt.slice();
+    var a; try { a = JSON.parse(raw); } catch (e) { return dflt.slice(); }
+    if (!Array.isArray(a)) return dflt.slice();
+    var out = [];
+    a.forEach(function (x) { if (typeof x === 'string' && /^[A-Za-z0-9-]{1,24}$/.test(x) && out.indexOf(x) < 0 && out.length < 60) out.push(x); });
+    return out;   // an empty saved list stays empty: the visitor removed them all
+  }
+  function favToggle(list, id) {   // a new list: id removed if it was there, else added at the end
+    var out = list.filter(function (x) { return x !== id; });
+    if (out.length === list.length) out.push(id);
+    return out;
+  }
+  // END TIDE FAV
+  // Find another station (2026-11-20): NOAA's own list, searched in the page. A station is added only when the
+  // page's prediction from NOAA's constants agrees with NOAA's own high and low waters for the next three days.
+  // NOAA's reference stations have constants; its subordinate stations have only offsets from a reference
+  // station (Tides.addSub), which is fetched and checked first when the page does not have it. Added stations
+  // are kept in this browser (lunara.tideAdded). Nothing NOAA sends is written as markup.
+  // BEGIN TIDE FIND
+  var FIND_GATE = { min: 15, ft: 0.25 };   // the limits ui/test/tides.js holds the built-in stations to
+  var FIND_MAX = 40, FIND_SHOW = 12;
+  var FIND_STATES = { AL: 'alabama', AK: 'alaska', AS: 'american samoa', CA: 'california', CT: 'connecticut', DE: 'delaware', DC: 'district of columbia washington',
+    FL: 'florida', GA: 'georgia', GU: 'guam', HI: 'hawaii', LA: 'louisiana', ME: 'maine', MD: 'maryland', MA: 'massachusetts', MS: 'mississippi',
+    NH: 'new hampshire', NJ: 'new jersey', NY: 'new york', NC: 'north carolina', OR: 'oregon', PA: 'pennsylvania', PR: 'puerto rico', RI: 'rhode island',
+    SC: 'south carolina', TX: 'texas', VI: 'virgin islands', VA: 'virginia', WA: 'washington' };
+  function findKm(lat1, lon1, lat2, lon2) {
+    var r = Math.PI / 180, dp = (lat2 - lat1) * r, dl = (lon2 - lon1) * r;
+    var a = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(dl / 2) * Math.sin(dl / 2);
+    return 2 * 6371.0088 * Math.asin(Math.min(1, Math.sqrt(a)));
+  }
+  function findSlim(json) {   // NOAA's station list -> its reference stations, checked field by field
+    var out = [], seen = {};
+    ((json && Array.isArray(json.stations)) ? json.stations : []).forEach(function (s) {
+      if (!s || (s.type !== 'R' && s.type !== 'S') || typeof s.id !== 'string' || !/^[0-9A-Z]{7}$/.test(s.id) || seen[s.id]) return;   // 7 digits, or NOAA's older ids such as TEC1603
+      if (typeof s.name !== 'string' || !s.name.trim() || typeof s.lat !== 'number' || typeof s.lng !== 'number') return;
+      if (!isFinite(s.lat) || !isFinite(s.lng) || Math.abs(s.lat) > 90 || Math.abs(s.lng) > 180) return;
+      seen[s.id] = true;
+      var o = { id: s.id, name: s.name.trim().slice(0, 60), state: typeof s.state === 'string' ? s.state.trim().slice(0, 20) : '', lat: s.lat, lon: s.lng };
+      if (s.type === 'S') { if (typeof s.reference_id !== 'string') return; o.ref = s.reference_id; }   // its shape is settled below: it must be a reference station in this list
+      out.push(o);
+    });
+    var main = {}; out.forEach(function (o) { if (!o.ref) main[o.id] = true; });
+    return out.filter(function (o) { return !o.ref || main[o.ref]; });   // a subordinate whose reference station is not in the list cannot be worked out
+  }
+  function findSub(st, off) {   // NOAA's offsets reply -> a subordinate station for Tides.addSub, or why not
+    var num = function (x) { return typeof x === 'number' && isFinite(x); };
+    if (!off || off.refStationId !== st.ref) return { ok: false, why: 'ref' };
+    var th = off.timeOffsetHighTide, tl = off.timeOffsetLowTide, hh = off.heightOffsetHighTide, hl = off.heightOffsetLowTide, kind = off.heightAdjustedType;
+    if (kind !== 'R' && kind !== 'F') return { ok: false, why: 'kind' };
+    if (!num(th) || !num(tl) || !num(hh) || !num(hl) || Math.abs(th) > 720 || Math.abs(tl) > 720) return { ok: false, why: 'bad' };
+    if (kind === 'R' ? (hh <= 0 || hl <= 0 || hh > 20 || hl > 20) : (Math.abs(hh) > 30 || Math.abs(hl) > 30)) return { ok: false, why: 'bad' };
+    return { ok: true, rec: { id: st.id, name: st.name, state: st.state, lat: st.lat, lon: st.lon, ref: st.ref, th: th, tl: tl, hh: hh, hl: hl, fixed: kind === 'F' } };
+  }
+  function findMatch(list, q, lat, lon, n) {   // every typed word must be in the name, the state code or the state's name; nearest first
+    var words = String(q || '').toLowerCase().split(/[\s,]+/).filter(Boolean);
+    var hayOf = function (s) { return (s.name + ' ' + s.state + ' ' + (FIND_STATES[s.state] || '')).toLowerCase(); };
+    return list.filter(function (s) {
+      var hay = hayOf(s);
+      return words.every(function (w) { return hay.indexOf(w) >= 0; });
+    }).map(function (s) {
+      var whole = hayOf(s).split(/[^a-z0-9]+/);   // "easter island" is Easter Island before it is Eastern Bay, however far away
+      return { id: s.id, name: s.name, state: s.state, lat: s.lat, lon: s.lon, ref: s.ref, distKm: findKm(lat, lon, s.lat, s.lon),
+        part: words.every(function (w) { return whole.indexOf(w) >= 0; }) ? 0 : 1 };
+    }).sort(function (x, y) { return x.part - y.part || x.distKm - y.distKm || (x.id < y.id ? -1 : 1); }).slice(0, n);
+  }
+  function findBuild(st, harcon, datums, names) {   // NOAA's two replies -> a station in tides.js's layout, or why not
+    var cs = harcon && harcon.HarmonicConstituents, dm = {}, hc = [], used = 0, i;
+    if (!Array.isArray(cs) || !cs.length) return { ok: false, why: 'none' };
+    ((datums && Array.isArray(datums.datums)) ? datums.datums : []).forEach(function (d) { if (d && typeof d.name === 'string') dm[d.name] = d.value; });
+    if (typeof dm.MSL !== 'number' || typeof dm.MLLW !== 'number' || !isFinite(dm.MSL - dm.MLLW)) return { ok: false, why: 'datum' };
+    for (i = 0; i < names.length * 2; i++) hc.push(0);
+    for (i = 0; i < cs.length; i++) {
+      var c = cs[i] || {}, k = names.indexOf(c.name), a = c.amplitude, p = c.phase_GMT;
+      if (a === 0) continue;                                    // NOAA lists every name; most small stations leave some at 0
+      if (k < 0) return { ok: false, why: 'unmodelled' };       // a constituent the engine does not have (Anchorage has 83)
+      if (typeof a !== 'number' || typeof p !== 'number' || !isFinite(a) || !isFinite(p) || a < 0 || a > 60) return { ok: false, why: 'bad' };
+      hc[2 * k] = a; hc[2 * k + 1] = p; used++;
+    }
+    if (!used) return { ok: false, why: 'none' };
+    return { ok: true, rec: { id: st.id, name: st.name, state: st.state, lat: st.lat, lon: st.lon, z0: Math.round((dm.MSL - dm.MLLW) * 1000) / 1000, hc: hc } };
+  }
+  function findAgree(ours, noaa, gate) {   // ours: Tides.extremes(); noaa: the "predictions" list of NOAA's hilo product, times in GMT
+    var n = 0, worstMin = 0, worstFt = 0, ok = Array.isArray(noaa) && noaa.length >= 3;
+    (Array.isArray(noaa) ? noaa : []).forEach(function (p) {
+      var m = p && /^(\d{4})-(\d\d)-(\d\d) (\d\d):(\d\d)$/.exec(p.t), v = p ? parseFloat(p.v) : NaN;
+      if (!m || !isFinite(v) || (p.type !== 'H' && p.type !== 'L')) { ok = false; return; }
+      var t = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]), best = null;
+      ours.forEach(function (o) { if (o.type === p.type && (!best || Math.abs(o.ms - t) < Math.abs(best.ms - t))) best = o; });
+      if (!best) { ok = false; return; }
+      var dMin = Math.abs(best.ms - t) / 60000, dFt = Math.abs(best.ft - v);
+      n++; worstMin = Math.max(worstMin, dMin); worstFt = Math.max(worstFt, dFt);
+      if (dMin > gate.min || dFt > gate.ft) ok = false;
+    });
+    return { ok: ok, n: n, worstMin: worstMin, worstFt: worstFt };
+  }
+  function addedParse(raw, nNames) {   // the saved stations; anything not in the exact shape is dropped
+    var a; try { a = JSON.parse(raw); } catch (e) { return []; }
+    if (!Array.isArray(a)) return [];
+    var out = [], seen = {}, num = function (x) { return typeof x === 'number' && isFinite(x); };
+    a.forEach(function (r) {
+      if (!r || typeof r.id !== 'string' || !/^[0-9A-Z]{7}$/.test(r.id) || seen[r.id] || out.length >= FIND_MAX) return;
+      if (typeof r.name !== 'string' || !r.name || r.name.length > 60 || typeof r.state !== 'string' || r.state.length > 20) return;
+      if (!num(r.lat) || !num(r.lon) || Math.abs(r.lat) > 90 || Math.abs(r.lon) > 180) return;
+      if (typeof r.ref === 'string') {   // a subordinate station: offsets, no constants
+        if (!/^[0-9]{7}$/.test(r.ref) || r.ref === r.id || !num(r.th) || !num(r.tl) || !num(r.hh) || !num(r.hl) || typeof r.fixed !== 'boolean') return;
+        seen[r.id] = true;
+        out.push({ id: r.id, name: r.name, state: r.state, lat: r.lat, lon: r.lon, ref: r.ref, th: r.th, tl: r.tl, hh: r.hh, hl: r.hl, fixed: r.fixed });
+        return;
+      }
+      if (!num(r.z0) || !Array.isArray(r.hc) || r.hc.length !== nNames * 2 || !r.hc.every(num)) return;
+      seen[r.id] = true;
+      var o = { id: r.id, name: r.name, state: r.state, lat: r.lat, lon: r.lon, z0: r.z0, hc: r.hc.slice() };
+      if (r.eot === true) o.eot = true;   // from the worldwide model, not NOAA
+      out.push(o);
+    });
+    return out;
+  }
+  function addedTrim(list, favs) {   // over the limit: the oldest that is not a favourite goes first, and never one a kept subordinate stands on
+    var out = list.slice();
+    while (out.length > FIND_MAX) {
+      var held = favs.concat(out.filter(function (r) { return r.ref; }).map(function (r) { return r.ref; }));
+      var i = 0; while (i < out.length && held.indexOf(out[i].id) >= 0) i++;
+      out.splice(i < out.length ? i : 0, 1);
+    }
+    return out;
+  }
+  // END TIDE FIND
+  // Tides anywhere in the world (2026-11-20): the EOT20 ocean-tide model, cut into small files by
+  // tools/make_world_tides.py (the file layout is described there) and hosted beside the public page. A place is
+  // given the model's nearest sea cell: near coasts from the full 1/8 degree grid, else from a 1/2 degree grid.
+  // Heights are about mean sea level and times are approximate; nothing can be checked against a tide table here.
+  // BEGIN TIDE WORLD
+  var WORLD_TILE = 40, WORLD_DEG = 0.125, WORLD_COLS = 2880, WORLD_COAST_KM = 85, WORLD_OCEAN_KM = 120;
+  function worldCell(lat, lon) {   // the grid cell a place falls in: row from the south pole, column east from Greenwich
+    var i = Math.round((lat + 90) / WORLD_DEG), j = Math.round((((lon % 360) + 360) % 360) / WORLD_DEG) % WORLD_COLS;
+    return { i: Math.max(0, Math.min(1440, i)), j: j };
+  }
+  function worldTiles(lat, lon, km) {   // the tiles that can hold a cell within km of the place (up to four; more near the poles)
+    var dLat = km / 111.2, edge = Math.abs(lat) + dLat, keys = [], side = WORLD_DEG * WORLD_TILE;   // side: 5 degrees
+    var dLon = edge >= 89.5 ? 180 : Math.min(180, dLat / Math.cos(edge * Math.PI / 180));           // as wide as the box is at its poleward edge
+    var a = worldCell(Math.max(-90, lat - dLat), lon), b = worldCell(Math.min(90, lat + dLat), lon);
+    var jA = Math.floor((lon - dLon + 360) / side), jB = Math.floor((lon + dLon + 360) / side);
+    for (var ti = Math.min(35, Math.floor(a.i / WORLD_TILE)); ti <= Math.min(35, Math.floor(b.i / WORLD_TILE)); ti++)
+      for (var jt = jA; jt <= jB; jt++) { var k = ti + '_' + (jt % 72); if (keys.indexOf(k) < 0) keys.push(k); }
+    return keys;
+  }
+  function worldParse(buf, key, nCons) {   // one tile file -> its cells, or [] if it is not in the expected layout
+    var m = /^(\d+)_(\d+)$/.exec(key), dv, n, out = [];
+    try { dv = new DataView(buf); } catch (e) { return out; }
+    if (!m || dv.byteLength < 8 || dv.getUint32(0, false) !== 0x454f5431) return out;   // "EOT1"
+    n = dv.getUint16(4, true);
+    if (dv.byteLength !== 8 + n * (2 + 4 * nCons)) return out;   // the size must be exactly what this many cells of nCons constituents take
+    for (var c = 0, off = 8; c < n; c++, off += 2 + 4 * nCons) {
+      var vals = [];
+      for (var k = 0; k < nCons; k++) vals.push(dv.getUint16(off + 2 + 4 * k, true) / 10, dv.getUint16(off + 4 + 4 * k, true) / 100);   // cm, degrees
+      out.push({ i: +m[1] * WORLD_TILE + dv.getUint8(off), j: +m[2] * WORLD_TILE + dv.getUint8(off + 1), vals: vals });
+    }
+    return out;
+  }
+  function worldNearest(cells, lat, lon, maxKm) {   // the nearest of the cells, with its own position and distance, or null
+    var best = null;
+    cells.forEach(function (c) {
+      var la = -90 + c.i * WORLD_DEG, lo = c.j * WORLD_DEG; if (lo > 180) lo -= 360;
+      var km = findKm(lat, lon, la, lo);
+      if (km <= maxKm && (!best || km < best.km)) best = { i: c.i, j: c.j, lat: la, lon: lo, km: km, vals: c.vals };
+    });
+    return best;
+  }
+  function worldId(i, j) { var s = (i * WORLD_COLS + j).toString(36).toUpperCase(); while (s.length < 5) s = '0' + s; return 'EO' + s; }   // 7 characters, like a NOAA id
+  function worldRec(cell, name, cons, names) {   // a model cell -> a station in tides.js's layout (feet), or null if it holds no tide
+    var hc = [], any = 0, i;
+    for (i = 0; i < names.length * 2; i++) hc.push(0);
+    for (i = 0; i < cons.length; i++) {
+      var k = names.indexOf(cons[i]), cm = cell.vals[2 * i], deg = cell.vals[2 * i + 1];
+      if (k < 0 || !(cm > 0) || !isFinite(deg)) continue;
+      hc[2 * k] = Math.round(cm / 30.48 * 10000) / 10000; hc[2 * k + 1] = deg; any += cm;
+    }
+    if (!(any > 0)) return null;
+    return { id: worldId(cell.i, cell.j), name: String(name).slice(0, 60), state: '', lat: Math.round(cell.lat * 1000) / 1000, lon: Math.round(cell.lon * 1000) / 1000, z0: 0, hc: hc, eot: true };
+  }
+  function worldCoords(q) {   // "51.5, -0.1" or "51.5N 0.1W" -> a place, else null
+    var m = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*°?\s*([NSns])?\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*°?\s*([EWew])?\s*$/.exec(String(q || ''));
+    if (!m) return null;
+    var lat = parseFloat(m[1]) * (/s/i.test(m[2] || '') ? -1 : 1), lon = parseFloat(m[3]) * (/w/i.test(m[4] || '') ? -1 : 1);
+    return Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? { lat: lat, lon: lon } : null;
+  }
+  function worldLabel(lat, lon) { return Math.abs(lat).toFixed(2) + '\u00b0' + (lat < 0 ? 'S' : 'N') + ' ' + Math.abs(lon).toFixed(2) + '\u00b0' + (lon < 0 ? 'W' : 'E'); }
+  // END TIDE WORLD
+  var WORLD = { index: null };
+  function worldBase() { return window.LUNARA_TIDE_WORLD || 'https://churchja.github.io/lunara/tides/'; }
+  function worldBin(url) {
+    var ctl = typeof AbortController === 'function' ? new AbortController() : null, timer = ctl ? setTimeout(function () { ctl.abort(); }, 25000) : 0;
+    var done = function () { clearTimeout(timer); };
+    return fetch(url, ctl ? { signal: ctl.signal } : {}).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(function (b) { done(); return b; }, function (e) { done(); throw e; });
+  }
+  function worldSet(set, lat, lon, km) {   // the nearest cell of one tile set, or null
+    var idx = WORLD.index, keys = worldTiles(lat, lon, km).filter(function (k) { return idx[set].indexOf(k) >= 0; });
+    return Promise.all(keys.map(function (k) { return worldBin(worldBase() + set + '/' + k + '.bin').then(function (b) { return worldParse(b, k, idx.cons.length); }); }))
+      .then(function (lists) { return worldNearest([].concat.apply([], lists), lat, lon, km); });
+  }
+  function worldPick(lat, lon, name) {   // add the model's tide for a place: star it, choose it
+    if (FIND.busy) return;
+    FIND.busy = 'world'; findMsg('Getting the worldwide tide model for ' + name + '\u2026');
+    (WORLD.index ? Promise.resolve(WORLD.index) : findJson(worldBase() + 'index.json').then(function (j) {
+      if (!j || j.v !== 1 || !Array.isArray(j.cons) || !Array.isArray(j.coast) || !Array.isArray(j.ocean)) throw new Error('index');
+      WORLD.index = j; return j;
+    })).then(function () { return worldSet('coast', lat, lon, WORLD_COAST_KM); })
+      .then(function (c) { return c || worldSet('ocean', lat, lon, WORLD_OCEAN_KM); })
+      .then(function (c) {
+        FIND.busy = null;
+        var rec = c && worldRec(c, 'Tide model, ' + name, WORLD.index.cons, Tides.CONSTITUENTS);
+        if (!rec) { findMsg('The model has no sea within about ' + WORLD_OCEAN_KM + ' km of ' + name + '.'); return; }
+        if (!Tides.stations.some(function (s) { return s.id === rec.id; })) {
+          Tides.addStation(rec);
+          TIDE.added = addedTrim(tideAdded().concat([rec]), tideFavs().concat([rec.id]));
+          try { localStorage.setItem('lunara.tideAdded', JSON.stringify(TIDE.added)); } catch (e) { /* ok */ }
+        }
+        findDone(rec.id);
+      }, function () { FIND.busy = null; findMsg('Could not get the worldwide tide model. Check the internet connection and try again.'); });
+  }
+  var FIND = { list: null, loading: false, busy: null };
+  var NOAA_MD = 'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi', NOAA_DG = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
+  function tideAdded() {   // the visitor's added stations, registered with the tide engine once
+    if (!TIDE.added) {
+      var raw = null; try { raw = localStorage.getItem('lunara.tideAdded'); } catch (e) { /* ok */ }
+      TIDE.added = raw ? addedParse(raw, Tides.CONSTITUENTS.length) : [];
+      if (Tides.addStation) {   // reference stations first; a subordinate whose reference is gone is dropped
+        TIDE.added.forEach(function (r) { if (!r.ref) Tides.addStation(r); });
+        TIDE.added = TIDE.added.filter(function (r) { return !r.ref || Tides.addSub(r); });
+      }
+    }
+    return TIDE.added;
+  }
+  function findJson(url) {
+    var ctl = typeof AbortController === 'function' ? new AbortController() : null, timer = ctl ? setTimeout(function () { ctl.abort(); }, 25000) : 0;
+    var done = function () { clearTimeout(timer); };
+    return fetch(url, ctl ? { signal: ctl.signal } : {}).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (j) { done(); return j; }, function (e) { done(); throw e; });
+  }
+  function findMsg(t) { setText('tideFindMsg', t); }
+  function findRender() {
+    var box = $('tideFindList');
+    while (box.firstChild) box.removeChild(box.firstChild);
+    if (!FIND.list) return;
+    var loc = state.loc || DEMO_LOC, q = $('tideQ').value.trim();
+    var hits = findMatch(FIND.list, q, loc.lat, loc.lon, FIND_SHOW);
+    hits.forEach(function (h) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'tide-hit'; b.setAttribute('data-id', h.id);
+      b.textContent = h.name + (h.state ? ', ' + h.state : '') + ' \u00b7 ' + fmtNum(h.distKm * 0.621371, 0) + ' mi';
+      box.appendChild(b);
+    });
+    var at = worldCoords(q), wb = $('tideWorldBtn');
+    wb.textContent = at ? 'Use the worldwide tide model at ' + worldLabel(at.lat, at.lon) : 'Use the worldwide tide model for ' + (state.loc ? 'my location' : 'the sample location');
+    if (!FIND.busy) findMsg(hits.length ? (q ? 'Pick a station to add it to your favourites.' : 'These are the nearest to you. Type a town, harbour or state to search.')
+      : at ? 'NOAA has no station by that name. The worldwide model can be used for that latitude and longitude.'
+      : 'No station matches. NOAA covers the United States and a few places abroad. Anywhere else: use the worldwide model below, or type a latitude and longitude such as 50.37, -4.14.');
+  }
+  function findOpen(open) {
+    $('tideFind').hidden = !open;
+    $('tideFindBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+    $('tideFindBtn').textContent = open ? 'Close the search' : 'Find another station';
+    if (!open || FIND.list || FIND.loading) { if (open) findRender(); return; }
+    FIND.loading = true; findMsg('Getting NOAA\u2019s station list\u2026');
+    findJson(NOAA_MD + '/stations.json?type=tidepredictions').then(function (j) {
+      FIND.loading = false; FIND.list = findSlim(j);
+      if (!FIND.list.length) { FIND.list = null; throw new Error('empty list'); }
+      findRender();
+    }).catch(function () { FIND.loading = false; findMsg('Could not reach NOAA. Check the internet connection, then close and open the search again.'); });
+  }
+  function findDone(id) {   // star it, choose it, close the search
+    if (tideFavs().indexOf(id) < 0) TIDE.fav = favToggle(tideFavs(), id);
+    try { localStorage.setItem('lunara.tideFav', JSON.stringify(TIDE.fav)); localStorage.setItem('lunara.tide', id); } catch (e) { /* ok */ }
+    $('tideQ').value = ''; findMsg(''); findOpen(false);
+    TIDE.key = null; TIDE.cache.key = null; requestDraw(true);
+  }
+  function findPick(id) {
+    if (FIND.busy || !FIND.list) return;
+    var st = FIND.list.filter(function (s) { return s.id === id; })[0];
+    if (!st) return;
+    if (Tides.stations.some(function (s) { return s.id === id; })) { findDone(id); return; }   // built in, or added before
+    FIND.busy = id; findMsg('Getting ' + st.name + ' from NOAA\u2026');
+    var d = new Date(), start = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()), p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+    var ymd = d.getUTCFullYear() + p2(d.getUTCMonth() + 1) + p2(d.getUTCDate());
+    (st.ref ? findGetSub(st, start, ymd) : findGetMain(st, start, ymd).then(function (rec) { return [rec]; })).then(function (recs) {
+      FIND.busy = null;
+      TIDE.added = addedTrim(tideAdded().concat(recs), tideFavs().concat([id]));
+      try { localStorage.setItem('lunara.tideAdded', JSON.stringify(TIDE.added)); } catch (e) { /* ok: it stays until the page is closed */ }
+      findDone(id);
+    }, function (e) { FIND.busy = null; findMsg((e && e.say) || 'Could not reach NOAA. Check the internet connection and try again.'); });
+  }
+  function findSay(msg) { var e = new Error(msg); e.say = msg; return e; }
+  function findHilo(id, ymd) { return findJson(NOAA_DG + '?product=predictions&station=' + id + '&begin_date=' + ymd + '&range=72&datum=MLLW&interval=hilo&units=english&time_zone=gmt&format=json'); }
+  function findChecked(id, start, hilo) { return findAgree(Tides.extremes(id, start - 3600000, start + 73 * 3600000), hilo && hilo.predictions, FIND_GATE).ok; }
+  // A reference station: fetched, built, registered with the engine and checked against NOAA. Gives its record.
+  function findGetMain(st, start, ymd) {
+    return Promise.all([findJson(NOAA_MD + '/stations/' + st.id + '/harcon.json?units=english'), findJson(NOAA_MD + '/stations/' + st.id + '/datums.json?units=english'), findHilo(st.id, ymd)]).then(function (r) {
+      var b = findBuild(st, r[0], r[1], Tides.CONSTITUENTS);
+      if (!b.ok) throw findSay('The app cannot work out the tides at ' + st.name + ' yet' + (b.why === 'unmodelled' ? ': NOAA uses tide terms there that it does not have.' : ': NOAA\u2019s data for it is incomplete.'));
+      Tides.addStation(b.rec);
+      if (!findChecked(st.id, start, r[2])) { Tides.removeStation(st.id); throw findSay('The app\u2019s tides for ' + st.name + ' do not match NOAA\u2019s closely enough, so it was not added.'); }
+      return b.rec;
+    });
+  }
+  // A subordinate station: its reference station first (unless the page has it), then its offsets, then the same check.
+  function findGetSub(st, start, ymd) {
+    var refSt = FIND.list.filter(function (s) { return s.id === st.ref; })[0], had = Tides.stations.some(function (s) { return s.id === st.ref; });
+    if (!had && !refSt) return Promise.reject(findSay('The app cannot work out the tides at ' + st.name + ' yet.'));
+    return (had ? Promise.resolve(null) : findGetMain(refSt, start, ymd)).then(function (refRec) {
+      var undo = function () { if (refRec) Tides.removeStation(refRec.id); };   // a reference station fetched only for this goes again
+      return Promise.all([findJson(NOAA_MD + '/stations/' + st.id + '/tidepredoffsets.json'), findHilo(st.id, ymd)]).then(function (r) {
+        var b = findSub(st, r[0]);
+        if (!b.ok || !Tides.addSub(b.rec)) { undo(); throw findSay('The app cannot work out the tides at ' + st.name + ' yet: NOAA\u2019s data for it is incomplete.'); }
+        if (!findChecked(st.id, start, r[1])) { Tides.removeStation(st.id); undo(); throw findSay('The app\u2019s tides for ' + st.name + ' do not match NOAA\u2019s closely enough, so it was not added.'); }
+        return refRec ? [refRec, b.rec] : [b.rec];
+      }, function (e) { undo(); throw e; });
+    });
+  }
+  function tideFavs() {
+    if (!TIDE.fav) { var raw = null; try { raw = localStorage.getItem('lunara.tideFav'); } catch (e) { /* ok */ } TIDE.fav = favParse(raw, TIDE_FAV); }
+    return TIDE.fav;
+  }
   // centre of a chart label w wide, moved in so the whole label stays m inside a chart W wide
   function labelX(x, w, W, m) { return Math.max(m + w / 2, Math.min(W - m - w / 2, x)); }
   function ftStr(v) { var t = v.toFixed(1); return t === '-0.0' ? '0.0' : t; }   // no negative zero
@@ -4093,6 +4501,7 @@ var Compass = (function () {
     var loc = state.loc || DEMO_LOC, key = tideSrc + ':' + loc.lat.toFixed(3) + ',' + loc.lon.toFixed(3);
     if (TIDE.key === key) return;
     TIDE.key = key;
+    tideAdded();   // before the nearest list is made
     if (Tides.addExtra && !Tides.extra().length) Tides.addExtra((window.LUNARA_SURF || []).concat(window.LUNARA_WONDERS || []));   // the data is defined after this script, so register on first use
     var pick = function (pre) { return Tides.extra ? Tides.extra().filter(function (x) { return x.id.indexOf(pre) === 0; }) : []; };
     var surfList = pick('surf-'), wonderList = pick('wonder-');
@@ -4102,21 +4511,24 @@ var Compass = (function () {
     TIDE.list = wonder ? wonderList.concat(TIDE_NOTE_ONLY) : surf ? surfList : Tides.nearest(loc.lat, loc.lon);
     // Nearest list in three groups (2026-11-10): favourites, the few closest, then well-known ports. The other
     // stations stay in the data (tides.js) but are not offered, so the list is short and every name is recognisable.
-    var groups = null;
+    var groups = null, favIds = tideFavs();
+    var saved = null; try { saved = localStorage.getItem(store); } catch (e) { /* ok */ }
+    TIDE.canFav = !wonder && !surf;   // the star is for the station list only
     if (!wonder && !surf) {
       var byId = function (id) { return TIDE.list.filter(function (st) { return st.id === id; })[0]; };
-      var favs = TIDE_FAV.map(byId).filter(Boolean);
+      var favs = favIds.map(byId).filter(Boolean);
       var near = TIDE.list.filter(function (st) { return favs.indexOf(st) < 0; }).slice(0, TIDE_NEAR_N);
       var ports = TIDE.list.filter(function (st) { return TIDE_PORTS.indexOf(st.id) >= 0 && favs.indexOf(st) < 0 && near.indexOf(st) < 0; });
-      groups = [['★ Favourites', favs], ['Nearest', near], ['Major ports', ports]];
-      TIDE.list = favs.concat(near, ports);
+      // a chosen station that is in none of the three groups (its star was just taken off) stays offered, so the star can go back on
+      var kept = byId(saved), other = kept && favs.indexOf(kept) < 0 && near.indexOf(kept) < 0 && ports.indexOf(kept) < 0 ? [kept] : [];
+      groups = [['★ Favourites', favs], ['Nearest', near], ['Major ports', ports], ['Chosen', other]];
+      TIDE.list = favs.concat(near, ports, other);
     }
-    var saved = null; try { saved = localStorage.getItem(store); } catch (e) { /* ok */ }
     if (!TIDE.list.some(function (st) { return st.id === saved; })) saved = (groups ? groups[1][1][0] || TIDE.list[0] : TIDE.list[0]).id;
     var opt = function (st, i) {
       return '<option value="' + st.id + '"' + (st.id === saved ? ' selected' : '') + '>' + (wonder ? (i + 1) + '. ' + esc(st.name) + ' — ' + esc(st.tag)
         : surf ? (i + 1) + '. ' + esc(st.name) + ' · ' + esc(st.state)
-        : (TIDE_FAV.indexOf(st.id) >= 0 ? '★ ' : '') + esc(st.name + ', ' + st.state) + ' · ' + fmtNum(st.distKm * 0.621371, 0) + ' mi') + '</option>';
+        : (favIds.indexOf(st.id) >= 0 ? '★ ' : '') + esc(st.name + (st.state ? ', ' + st.state : '')) + ' · ' + fmtNum(st.distKm * 0.621371, 0) + ' mi') + '</option>';
     };
     // native dropdowns ignore option colours, so a star and a group heading are what survive on every browser
     $('tideStation').innerHTML = groups
@@ -4138,7 +4550,9 @@ var Compass = (function () {
     DE: 'America/New_York', VA: 'America/New_York', NC: 'America/New_York', SC: 'America/New_York', GA: 'America/New_York', FL: 'America/New_York',
     AL: 'America/Chicago', MS: 'America/Chicago', LA: 'America/Chicago', TX: 'America/Chicago',
     CA: 'America/Los_Angeles', OR: 'America/Los_Angeles', WA: 'America/Los_Angeles',
-    AK: 'America/Anchorage', HI: 'Pacific/Honolulu', PR: 'America/Puerto_Rico' };
+    AK: 'America/Anchorage', HI: 'Pacific/Honolulu', PR: 'America/Puerto_Rico',
+    NH: 'America/New_York', CT: 'America/New_York', MD: 'America/New_York', DC: 'America/New_York', PA: 'America/New_York',   // added stations (2026-11-20)
+    VI: 'America/St_Thomas', GU: 'Pacific/Guam', AS: 'Pacific/Pago_Pago' };
   function tideTz(st) { return st.tz || (st.state === 'FL' && st.lon < -85 ? 'America/Chicago' : STATE_TZ[st.state]) || null; }
   var tzFmt = {};
   function placeTime(zone, ms) {
@@ -4151,7 +4565,18 @@ var Compass = (function () {
   }
   function renderTideLocal(id, ms) {
     var st = TIDE.list.filter(function (x) { return x.id === id; })[0], zone = st && tideTz(st);
-    $('tideStation').parentNode.classList.toggle('fav', TIDE_FAV.indexOf(id) >= 0);
+    var isFav = !!TIDE.canFav && tideFavs().indexOf(id) >= 0, fb = $('tideFavBtn');
+    $('tideStation').parentNode.classList.toggle('fav', isFav);
+    $('tideStation').parentNode.classList.toggle('can-fav', !!TIDE.canFav);
+    var fd = $('tideFindBtn');
+    if (fd) { fd.hidden = !TIDE.canFav; if (!TIDE.canFav && !$('tideFind').hidden) findOpen(false); }
+    if (fb) {
+      fb.hidden = !TIDE.canFav;
+      fb.setAttribute('aria-pressed', isFav ? 'true' : 'false');
+      fb.setAttribute('aria-label', isFav ? 'Remove this station from your favourites' : 'Add this station to your favourites');
+      fb.title = isFav ? 'Remove from favourites' : 'Add to favourites';
+      fb.textContent = isFav ? '\u2605' : '\u2606';
+    }
     setHTML('tideLocal', zone ? '<small>Local</small>' + esc(placeTime(zone, ms)) : '');
     var w = $('tideLocal').offsetWidth; $('tideStation').style.paddingRight = w ? (w + 48) + 'px' : '';   // keep the name clear of the time and the chevron
   }
@@ -4234,7 +4659,11 @@ var Compass = (function () {
       ? note + ' Heights in feet about mean sea level; times in your time zone, with the local time there. EOT20 global ocean tide model (DGFI-TUM, CC BY 4.0); its 14 km grid smooths narrow bays and straits, so treat these as a guide, not local tide tables.'
       : isSurf
       ? note + ' Heights in feet about mean sea level; times in your time zone, with the local time at the spot. EOT20 global ocean tide model (DGFI-TUM, CC BY 4.0), computed on this page. Checked against NOAA at Honolulu: highs and lows typically within 25 min, at most about 2 h; a guide for planning, not for navigation.'
-      : note + ' Heights in feet above mean lower low water; times in your time zone. NOAA harmonic prediction, computed on this page.');
+      : tideAdded().some(function (r) { return r.id === id && r.eot; })
+      ? note + ' Heights in feet about mean sea level; times in your time zone. Not a tide table: this is the EOT20 global ocean tide model (DGFI-TUM, CC BY 4.0), computed on this page. Set against 47 NOAA stations, half were within a quarter of an hour, but inside bays, sounds and rivers it was up to four hours out.'
+      : note + ' Heights in feet above mean lower low water; times in your time zone. ' + (tideAdded().some(function (r) { return r.id === id && r.ref; })
+        ? 'Worked out on this page from NOAA\u2019s offsets to a nearby reference station; the curve between high and low water is drawn in.'
+        : 'NOAA harmonic prediction, computed on this page.'));
   }
   // ---------------------------------------------------------------- Radio deck (stations and podcasts)
   // One <audio> element plays everything. With a station list (LUNARA_RADIO: the computer and lamp
@@ -4676,6 +5105,24 @@ var Compass = (function () {
   else tunesFallback();
 
   $('tideStation').addEventListener('change', function () { try { localStorage.setItem(TIDE.store || 'lunara.tide', this.value); } catch (e) { /* ok */ } TIDE.cache.key = null; requestDraw(true); });
+  $('tideFavBtn').addEventListener('click', function () {
+    var id = $('tideStation').value;
+    if (!TIDE.canFav || !id) return;
+    TIDE.fav = favToggle(tideFavs(), id);
+    try { localStorage.setItem('lunara.tideFav', JSON.stringify(TIDE.fav)); localStorage.setItem(TIDE.store || 'lunara.tide', id); } catch (e) { /* ok: the star still holds until the page is closed */ }
+    TIDE.key = null; TIDE.cache.key = null; requestDraw(true);   // the list is rebuilt with this station still chosen
+  });
+  $('tideFindBtn').addEventListener('click', function () { findOpen($('tideFind').hidden); });
+  $('tideQ').addEventListener('input', findRender);
+  $('tideWorldBtn').addEventListener('click', function () {
+    var at = worldCoords($('tideQ').value), loc = state.loc || DEMO_LOC;
+    if (at) worldPick(at.lat, at.lon, worldLabel(at.lat, at.lon));
+    else worldPick(loc.lat, loc.lon, loc.name ? String(loc.name) : worldLabel(loc.lat, loc.lon));
+  });
+  $('tideFindList').addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('button[data-id]') : null;
+    if (b) findPick(b.getAttribute('data-id'));
+  });
 
   function renderTonight(ms, m) {
     var loc = state.loc || DEMO_LOC, base = localMidnight(ms);
